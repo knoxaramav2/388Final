@@ -37,6 +37,7 @@ public class GameActivity extends AppCompatActivity {
      * {@link android.support.v4.app.FragmentStatePagerAdapter}.
      */
     private SectionsPagerAdapter mSectionsPagerAdapter;
+    private MapsActivity mMap;
 
     /**
      * The {@link ViewPager} that will host the section contents.
@@ -125,7 +126,7 @@ public class GameActivity extends AppCompatActivity {
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.activity_maps, container, false);
+            View rootView = inflater.inflate(R.layout.fragment_game, container, false);
             //TextView textView = (TextView) rootView.findViewById(R.id.section_label);
             //textView.setText(getString(R.string.section_format, getArguments().getInt(ARG_SECTION_NUMBER)));
             return rootView;
@@ -143,22 +144,9 @@ public class GameActivity extends AppCompatActivity {
 
             switch(i){
                 case 0:
-
-                    SupportMapFragment smf = SupportMapFragment.newInstance();
-                    smf.getMapAsync(new OnMapReadyCallback() {
-
-                        GoogleMap mMap;
-
-                        @Override
-                        public void onMapReady(GoogleMap googleMap) {
-                            mMap = googleMap;
-
-                            // Add a marker in Sydney and move the camera
-                            LatLng sydney = new LatLng(-34, 151);
-                            mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-                            mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
-                        }
-                    });
+                    mMap = new MapsActivity(getApplicationContext());
+                    SupportMapFragment smf = mMap.getMapFragment();
+                    smf.getMapAsync(mMap);
                     return smf;
                 default: return PlaceholderFragment.newInstance(i + 1);
             }
@@ -169,31 +157,4 @@ public class GameActivity extends AppCompatActivity {
             return 3;
         }
     }
-
-
-    /**
-     * A {@link FragmentPagerAdapter} that returns a fragment corresponding to
-     * one of the sections/tabs/pages.
-     */
-    /*public class SectionsPagerAdapter extends FragmentPagerAdapter {
-
-
-        public SectionsPagerAdapter(FragmentManager fm) {
-            super(fm);
-        }
-
-        @Override
-        public Fragment getItem(int position) {
-
-            // getItem is called to instantiate the fragment for the given page.
-            // Return a PlaceholderFragment (defined as a static inner class below).
-            return PlaceholderFragment.newInstance(position + 1);
-        }
-
-        @Override
-        public int getCount() {
-            // Show 3 total pages.
-            return 3;
-        }
-    }*/
 }

@@ -1,5 +1,6 @@
 package com.knx.mmi.hoarders;
 
+import android.arch.persistence.room.Room;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
@@ -12,6 +13,8 @@ import android.view.MenuItem;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
+
+    private GameDB gameDB;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -28,6 +31,10 @@ public class MainActivity extends AppCompatActivity {
                         .setAction("Action", null).show();
             }
         });
+
+        gameDB = Room.databaseBuilder(this, GameDB.class, "gameDB")
+            .fallbackToDestructiveMigration()
+            .build();
     }
 
     @Override
