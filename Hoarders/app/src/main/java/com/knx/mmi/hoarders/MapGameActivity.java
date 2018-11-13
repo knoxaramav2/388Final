@@ -2,6 +2,8 @@ package com.knx.mmi.hoarders;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.location.Location;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
@@ -16,7 +18,10 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 
@@ -26,6 +31,8 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
 
     private Location mLastLocation;
     private FusedLocationProviderClient mFusedLocationClient;
+
+    private Bitmap bMonument;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,14 +57,10 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
+        mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(this, R.raw.style_json));
 
+        loadBitmapIcons();
         initMap();
-
-
-        // Add a marker in Sydney and move the camera
-        //LatLng sydney = new LatLng(-34, 151);
-        //mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        //mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
     }
 
     //https://stackoverflow.com/questions/37986082/android-googlemaps-mylocation-permission
@@ -72,8 +75,6 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
                     new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                     1);
         } else {
-
-
             //Update camera settings
             mMap.setMyLocationEnabled(true);
             mMap.setBuildingsEnabled(true);
@@ -84,13 +85,28 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
                         @Override
                         public void onSuccess(Location location) {
                             LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
-                            //mMap.addMarker(new MarkerOptions().position(latLng).title("Marker in ASDASDASD"));
+
                             mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
                             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 18.0f));
+                            mMap.addMarker(new MarkerOptions().position(latLng).title("Marker in ASDASDASD").icon(BitmapDescriptorFactory.fromBitmap(bMonument)));
                         }
                     });
         }
 
 
+    }
+
+    //generate marker icons
+    private void loadBitmapIcons(){
+        bMonument = getScaledBitMap(R.drawable.monument);
+    }
+
+    private Bitmap getScaledBitMap(int bitMapId){
+
+        BitmapDrawable bitMapDrawable = (BitmapDrawable) getResources().getDrawable(bitMapId);
+        Bitmap bm = bitMapDrawable.getBitmap();
+        Bitmap scaledBm = Bitmap.createScaledBitmap(bm, 200, 200, false);
+
+        return scaledBm;
     }
 }
