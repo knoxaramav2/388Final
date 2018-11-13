@@ -19,6 +19,8 @@ import android.view.ViewGroup;
 
 import android.widget.TextView;
 
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -37,7 +39,7 @@ public class GameActivity extends AppCompatActivity {
      * {@link android.support.v4.app.FragmentStatePagerAdapter}.
      */
     private SectionsPagerAdapter mSectionsPagerAdapter;
-    private MapsActivity mMap;
+    private FusedLocationProviderClient mFusedLocationClient;
 
     /**
      * The {@link ViewPager} that will host the section contents.
@@ -63,16 +65,6 @@ public class GameActivity extends AppCompatActivity {
 
         mViewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
         tabLayout.addOnTabSelectedListener(new TabLayout.ViewPagerOnTabSelectedListener(mViewPager));
-
-        /*FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });*/
-
     }
 
 
@@ -141,13 +133,8 @@ public class GameActivity extends AppCompatActivity {
 
         @Override
         public Fragment getItem(int i) {
-
             switch(i){
-                case 0:
-                    mMap = new MapsActivity(getApplicationContext());
-                    SupportMapFragment smf = mMap.getMapFragment();
-                    smf.getMapAsync(mMap);
-                    return smf;
+
                 default: return PlaceholderFragment.newInstance(i + 1);
             }
         }

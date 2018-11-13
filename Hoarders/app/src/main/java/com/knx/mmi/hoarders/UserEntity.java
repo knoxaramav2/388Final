@@ -15,6 +15,14 @@ public class UserEntity {
 
     }
 
+    public void setUserId(String id){
+        userId = id;
+    }
+
+    public void setUserName(String name){
+        userName = name;
+    }
+
     public String getUserId(){
         return userId;
     }

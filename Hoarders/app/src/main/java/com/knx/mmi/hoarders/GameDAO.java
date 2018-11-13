@@ -11,8 +11,8 @@ public interface GameDAO  {
 
     @Insert
     void insertNewProfile (UserEntity user);
-    @Query("SELECT * FROM UserEntity where id = userId")
-    UserEntity getUserById(int id);
+    @Query("SELECT * FROM UserEntity where userId =:userId")
+    UserEntity getUserById(int userId);
     @Update
     void updateUser(UserEntity user);
     @Delete

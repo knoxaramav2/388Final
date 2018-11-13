@@ -60,8 +60,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onStartButtonClick(View view){
-        Toast.makeText(this, "Start Game", Toast.LENGTH_SHORT).show();
-        Intent gameViewIntent = new Intent(this, GameActivity.class);
+        Intent gameViewIntent = new Intent(this, MapGameActivity.class);
         startActivity(gameViewIntent);
     }
 }
