@@ -60,7 +60,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onStartButtonClick(View view){
-        Intent gameViewIntent = new Intent(this, MapGameActivity.class);
+        //Intent gameViewIntent = new Intent(this, MapGameActivity.class);
+        Intent gameViewIntent = new Intent(this, GameActivity.class);
         startActivity(gameViewIntent);
+
+
     }
 }

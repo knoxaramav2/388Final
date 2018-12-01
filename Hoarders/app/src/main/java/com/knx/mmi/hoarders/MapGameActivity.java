@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.location.Location;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
@@ -18,14 +19,17 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.UiSettings;
 import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
-public class MapGameActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapGameActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMyLocationClickListener {
 
     private GoogleMap mMap;
 
@@ -33,6 +37,8 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
     private FusedLocationProviderClient mFusedLocationClient;
 
     private Bitmap bMonument;
+
+    private FirebaseAuth mFireBaseAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +48,21 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        mFireBaseAuth = FirebaseAuth.getInstance();
+    }
+
+    @Override
+    public void onStart(){
+        super.onStart();
+
+        FirebaseUser user = mFireBaseAuth.getCurrentUser();
+
+    }
+
+    @Override
+    public void onStop(){
+        super.onStop();
     }
 
 
@@ -62,6 +83,8 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
         loadBitmapIcons();
         initMap();
     }
+
+    
 
     //https://stackoverflow.com/questions/37986082/android-googlemaps-mylocation-permission
     public void initMap(){
@@ -92,8 +115,15 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
                         }
                     });
         }
+    }
 
+    @Override
+    public void onMyLocationClick(Location location){
+        LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
 
+        mMap.setMaxZoomPreference(30);
+        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 20.0f));
     }
 
     //generate marker icons
