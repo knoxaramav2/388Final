@@ -11,6 +11,7 @@ import java.net.URL;
 public class HttpFireBaseAsync extends AsyncTask <String, Integer, String> {
 
     private ResultHandler resultHandler;
+    private
 
     HttpFireBaseAsync(ResultHandler handler){
         resultHandler = handler;
@@ -34,7 +35,7 @@ public class HttpFireBaseAsync extends AsyncTask <String, Integer, String> {
 
     @Override
     protected void onPostExecute(String result){
-        resultHandler.handleResult(result);
+        resultHandler.handleHttpResult(result);
     }
 
     private String readStream (InputStream inputStream){
@@ -54,6 +55,6 @@ public class HttpFireBaseAsync extends AsyncTask <String, Integer, String> {
     }
 
     public interface ResultHandler{
-        void handleResult(String result);
+        void handleHttpResult(String result);
     }
 }

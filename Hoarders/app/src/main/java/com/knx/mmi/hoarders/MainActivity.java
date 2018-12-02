@@ -13,7 +13,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Toast;
 
-public class MainActivity extends AppCompatActivity implements HttpFireBaseAsync.ResultHandler {
+public class MainActivity extends AppCompatActivity  {
 
     private GameDB gameDB;
 
@@ -65,10 +65,6 @@ public class MainActivity extends AppCompatActivity implements HttpFireBaseAsync
         Intent gameViewIntent = new Intent(this, GameActivity.class);
         startActivity(gameViewIntent);
 
-
-    }
-
-    public  void handleResult(String result){
 
     }
 }

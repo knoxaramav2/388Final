@@ -8,6 +8,7 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Handler;
+import android.os.Looper;
 import android.support.design.widget.TabLayout;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -45,10 +46,13 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.functions.FirebaseFunctions;
 
 import java.util.Map;
 
-public class GameActivity extends AppCompatActivity {
+public class GameActivity extends AppCompatActivity
+        implements  HttpFireBaseAsync.ResultHandler
+{
     /**
      * The {@link android.support.v4.view.PagerAdapter} that will provide
      * fragments for each of the sections. We use a
@@ -66,6 +70,13 @@ public class GameActivity extends AppCompatActivity {
     private FirebaseAuth mFireBaseauth;
     private FirebaseUser mFireBaseUser;
     private FirebaseDatabase mFireBaseDB;
+    private FirebaseFunctions mFireBaseFunctions;
+
+    private MapFragment mMapFragment;
+    private TextView mLatLngDisplay;
+    MapFragment.LocationUpdateHandler iLocationUpdateHandler;
+
+    private int UPDATE_RATE = 1000;
 
     /**
      * The {@link ViewPager} that will host the section contents.
@@ -77,27 +88,30 @@ public class GameActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         // Create the adapter that will return a fragment for each of the three
         // primary sections of the activity.
         mSectionsPagerAdapter = new SectionsPagerAdapter(getSupportFragmentManager());
 
         // Set up the ViewPager with the sections adapter.
-        mViewPager = (ViewPager) findViewById(R.id.container);
+        mViewPager = findViewById(R.id.container);
         mViewPager.setAdapter(mSectionsPagerAdapter);
 
-        TabLayout tabLayout = (TabLayout) findViewById(R.id.tabs);
+        mLatLngDisplay = findViewById(R.id.latLngDisplay);
+
+        TabLayout tabLayout = findViewById(R.id.tabs);
 
         mViewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
         tabLayout.addOnTabSelectedListener(new TabLayout.ViewPagerOnTabSelectedListener(mViewPager));
 
         //Setup Firebase connections
+        mFireBaseauth = FirebaseAuth.getInstance();
         mFireBaseDB = FirebaseDatabase.getInstance();
+        mFireBaseFunctions = FirebaseFunctions.getInstance();
 
         httpMapHandler = new Handler();
     }
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -119,6 +133,11 @@ public class GameActivity extends AppCompatActivity {
         }
 
         return super.onOptionsItemSelected(item);
+    }
+
+    @Override
+    public void handleHttpResult(String result) {
+
     }
 
     /**
@@ -156,7 +175,6 @@ public class GameActivity extends AppCompatActivity {
         }
     }
 
-
     public class SectionsPagerAdapter extends FragmentPagerAdapter{
 
         public SectionsPagerAdapter(FragmentManager fm){
@@ -166,7 +184,20 @@ public class GameActivity extends AppCompatActivity {
         @Override
         public Fragment getItem(int i) {
             switch(i){
-                case 0: return MapFragment.newInstance();
+                case 0:
+                    if (mMapFragment == null){
+                        mMapFragment = MapFragment.newInstance(new MapFragment.LocationUpdateHandler() {
+                            @Override
+                            public void handleLocationUpdate(Location location) {
+                                String lat = String.format("%.3f", location.getLatitude());
+                                String lng = String.format("%.3f", location.getLongitude());
+                                long dTime = mMapFragment.getUpdateDeltaTime();
+
+                                mLatLngDisplay.setText("LATLNG  "+lat+" : "+lng + " delta "+mMapFragment.getLastDistance(null)+" : "+dTime);
+                            }
+                        });
+                    }
+                    return mMapFragment;
                 default: return PlaceholderFragment.newInstance(i + 1);
             }
         }
