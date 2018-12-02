@@ -84,8 +84,6 @@ public class MapGameActivity extends FragmentActivity implements OnMapReadyCallb
         initMap();
     }
 
-    
-
     //https://stackoverflow.com/questions/37986082/android-googlemaps-mylocation-permission
     public void initMap(){
 
