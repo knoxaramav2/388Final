@@ -11,9 +11,8 @@ import java.net.URL;
 public class HttpFireBaseAsync extends AsyncTask <String, Integer, String> {
 
     private ResultHandler resultHandler;
-    private
 
-    HttpFireBaseAsync(ResultHandler handler){
+    public HttpFireBaseAsync(ResultHandler handler){
         resultHandler = handler;
     }
 

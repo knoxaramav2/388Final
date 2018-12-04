@@ -62,6 +62,7 @@ public class MapFragment extends Fragment {
     private final float locationResolution = 1.8f;
     private long dTime;
     private long lastMillis;
+    private long UPDATE_RATE = 10000;
 
     private LocationUpdateHandler locationUpdateHandler;
 
@@ -134,7 +135,7 @@ public class MapFragment extends Fragment {
                     });
 
                     mLocationRequest = new LocationRequest();
-                    mLocationRequest.setInterval(3000);
+                    mLocationRequest.setInterval(UPDATE_RATE);
 
                     lastMillis = System.currentTimeMillis();
                     dTime = 0;
@@ -150,14 +151,12 @@ public class MapFragment extends Fragment {
                             lastMillis = currMillis;
 
                             List<Location> locationList = locationResult.getLocations();
-                            int dbgLocationUpdates = locationList.size();
 
                             if (locationList.size() == 0){
-                                Toast.makeText(getContext(), "NO MAP UPDATES", Toast.LENGTH_LONG);
                                 return;
                             }
 
-                            Location location = locationList.get(0);
+                            Location location = locationList.get(locationList.size()-1);
 
                             //mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 18.0f));
                             locationUpdateHandler.handleLocationUpdate(location);
@@ -175,6 +174,9 @@ public class MapFragment extends Fragment {
     public static MapFragment newInstance(LocationUpdateHandler locationUpdateHandler){
         MapFragment mapFragment = new MapFragment();
         mapFragment.locationUpdateHandler = locationUpdateHandler;
+
+
+
         return mapFragment;
     }
 
