@@ -74,7 +74,6 @@ public class GameActivity extends AppCompatActivity
 
     private MapFragment mMapFragment;
     private TextView mLatLngDisplay;
-    MapFragment.LocationUpdateHandler iLocationUpdateHandler;
 
     private int UPDATE_RATE = 1000;
 

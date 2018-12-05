@@ -64,16 +64,18 @@ public class MapFragment extends Fragment {
     private long lastMillis;
     private long UPDATE_RATE = 10000;
 
+    private static final String MAP_FRAGMENT_TAG = "map";
+
     private LocationUpdateHandler locationUpdateHandler;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstance){
+        super.onCreateView(inflater, container, savedInstance);
+
         View rootView = inflater.inflate(R.layout.mapfragment, container, false);
 
         mMapView = rootView.findViewById(R.id.mapView);
         mMapView.onCreate(savedInstance);
-
-        mMapView.onResume();
 
         try{
             MapsInitializer.initialize(getActivity().getApplicationContext());
@@ -91,10 +93,6 @@ public class MapFragment extends Fragment {
                             new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
                             1);
                 } else {
-                    if (mFusedClient != null){
-                        return;
-                    }
-
                     mMap = googleMap;
                     mMap.setMyLocationEnabled(true);
                     mMap.setBuildingsEnabled(true);
@@ -167,6 +165,8 @@ public class MapFragment extends Fragment {
                 }
             }
         });
+
+        mMapView.onResume();
 
         return rootView;
     }

@@ -174,4 +174,10 @@ public class MainActivity extends AppCompatActivity implements HttpFireBaseAsync
         startActivityForResult(loginIntent, ACTIVITY_LOGIN);
     }
 
+    public void onProfilePressed(View view){
+        Intent profileIntent = new Intent(this, ProfileActivity.class);
+        startActivity(profileIntent);
+    }
+
+
 }
