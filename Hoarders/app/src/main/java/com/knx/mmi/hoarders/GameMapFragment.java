@@ -10,16 +10,15 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
+import android.os.Looper;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
+import android.util.LruCache;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -27,7 +26,6 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.LocationSettingsRequest;
-import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.SettingsClient;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -37,26 +35,27 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MapStyleOptions;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
 
+import java.util.HashMap;
 import java.util.List;
 
 /**
  * reference https://stackoverflow.com/questions/19353255/how-to-put-google-maps-v2-on-a-fragment-using-viewpager
  *TODO move to own file, TEST FIRTS
  */
-public class MapFragment extends Fragment {
+
+public class GameMapFragment extends Fragment {
     MapView mMapView;
     private GoogleMap mMap;
     private FusedLocationProviderClient mFusedClient;
     private LocationRequest mLocationRequest;
     private LocationCallback mLocationCallback;
+    private MapGameCallback mapGameCallback;
 
     //Game Elements
-    private Bitmap bMonument;
-    private Location lastLocation;
     private Location currLocation;
     //report movements at ~ 5 from previous
     private final float locationResolution = 1.8f;
@@ -64,9 +63,17 @@ public class MapFragment extends Fragment {
     private long lastMillis;
     private long UPDATE_RATE = 10000;
 
-    private static final String MAP_FRAGMENT_TAG = "map";
+    public static final String RSC_STONE = "STONE";
+    public static final String RSC_GOLD = "GOLD";
+    public static final String BLD_MONUMENT = "MONUMENT";
 
     private LocationUpdateHandler locationUpdateHandler;
+    private LocationManager locationManager;
+    private Criteria providerCriteria;
+
+    private LruCache<String, Bitmap> mBitmapCache;
+    private HashMap<Integer, Marker> mMarkerList;
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstance){
@@ -76,6 +83,16 @@ public class MapFragment extends Fragment {
 
         mMapView = rootView.findViewById(R.id.mapView);
         mMapView.onCreate(savedInstance);
+
+        locationManager = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
+
+        mMarkerList = new HashMap<>();
+        mBitmapCache = new LruCache<String, Bitmap>(2*1024*1024){
+            @Override
+            protected int sizeOf(String key, Bitmap value){
+                return value.getByteCount();
+            }
+        };
 
         try{
             MapsInitializer.initialize(getActivity().getApplicationContext());
@@ -88,6 +105,8 @@ public class MapFragment extends Fragment {
             @Override
             public void onMapReady(GoogleMap googleMap) {
 
+                providerCriteria = new Criteria();
+
                 if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
                     ActivityCompat.requestPermissions(getActivity(),
                             new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
@@ -98,16 +117,12 @@ public class MapFragment extends Fragment {
                     mMap.setBuildingsEnabled(true);
                     mMap.setMapStyle(MapStyleOptions.loadRawResourceStyle(getContext(), R.raw.style_json));
                     mMap.setOnMyLocationButtonClickListener(new GoogleMap.OnMyLocationButtonClickListener() {
-                        LocationManager locationManager = (LocationManager) getContext().getSystemService(Context.LOCATION_SERVICE);
-                        Criteria providerCriteria = new Criteria();
+
 
                         @Override
                         public boolean onMyLocationButtonClick() {
 
-                            if (!checkLocationPermission()){
-                                requestLocationPermission();
-                            }
-
+                            checkLocationPermission();
                             Location location = locationManager.getLastKnownLocation(locationManager.getBestProvider(providerCriteria, false));
 
                             if (location == null){
@@ -119,49 +134,21 @@ public class MapFragment extends Fragment {
                         }
                     });
 
-                    mFusedClient = LocationServices.getFusedLocationProviderClient(getContext());
-
-                    mFusedClient.getLastLocation().addOnSuccessListener(new OnSuccessListener<Location>() {
+                    mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
                         @Override
-                        public void onSuccess(Location location) {
-                            LatLng latLng = new LatLng(location.getLatitude(), location.getLongitude());
+                        public boolean onMarkerClick(Marker marker) {
 
-                            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 18.0f));
-                            mMap.addMarker(new MarkerOptions().position(latLng).title("Marker in ASDASDASD").icon(BitmapDescriptorFactory.fromBitmap(bMonument)));
-                        }
-                    });
-
-                    mLocationRequest = new LocationRequest();
-                    mLocationRequest.setInterval(UPDATE_RATE);
-
-                    lastMillis = System.currentTimeMillis();
-                    dTime = 0;
-
-                    mLocationCallback = new LocationCallback(){
-
-                        @Override
-                        public void onLocationResult(LocationResult locationResult){
-
-                            //Update time data
-                            long currMillis = System.currentTimeMillis();
-                            dTime = currMillis - lastMillis;
-                            lastMillis = currMillis;
-
-                            List<Location> locationList = locationResult.getLocations();
-
-                            if (locationList.size() == 0){
-                                return;
+                            for (Integer i : mMarkerList.keySet()){
+                                if (mMarkerList.get(i).equals(marker)){
+                                    mapGameCallback.onMarkerClick(i);
+                                }
                             }
 
-                            Location location = locationList.get(locationList.size()-1);
 
-                            //mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 18.0f));
-                            locationUpdateHandler.handleLocationUpdate(location);
+
+                            return false;
                         }
-                    };
-
-                    mFusedClient.requestLocationUpdates(mLocationRequest, mLocationCallback, null);
+                    });
                 }
             }
         });
@@ -171,11 +158,12 @@ public class MapFragment extends Fragment {
         return rootView;
     }
 
-    public static MapFragment newInstance(LocationUpdateHandler locationUpdateHandler){
-        MapFragment mapFragment = new MapFragment();
+    public static GameMapFragment newInstance(LocationUpdateHandler locationUpdateHandler, MapGameCallback mapGameCallback){
+        GameMapFragment mapFragment = new GameMapFragment();
         mapFragment.locationUpdateHandler = locationUpdateHandler;
+        mapFragment.mapGameCallback = mapGameCallback;
 
-
+        mapFragment.mapGameCallback = mapGameCallback;
 
         return mapFragment;
     }
@@ -189,7 +177,9 @@ public class MapFragment extends Fragment {
     public void onStart(){
         super.onStart();
 
-        loadBitmaps();
+        loadBitmaps(RSC_STONE);
+        loadBitmaps(RSC_GOLD);
+        loadBitmaps(BLD_MONUMENT);
     }
 
     @Override
@@ -207,7 +197,6 @@ public class MapFragment extends Fragment {
     public void onPause(){
         super.onPause();
         mMapView.onPause();
-        mFusedClient.removeLocationUpdates(mLocationCallback);
     }
 
     @Override
@@ -222,8 +211,21 @@ public class MapFragment extends Fragment {
         mMapView.onLowMemory();
     }
 
+    public Location getCurrLocation(){
+        checkLocationPermission();
+        Location location = locationManager.getLastKnownLocation(locationManager.getBestProvider(providerCriteria, false));
+        currLocation = location;
+        //mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(location.getLatitude(), location.getLongitude()), 15.0f));
+        mMap.animateCamera(CameraUpdateFactory.newLatLng(new LatLng(location.getLatitude(), location.getLongitude())));
+        return location;
+    }
+
     boolean checkLocationPermission(){
-        return !(ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED);
+        if ((ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)){
+            requestLocationPermission();
+        }
+
+        return true;
     }
 
     void requestLocationPermission(){
@@ -232,8 +234,21 @@ public class MapFragment extends Fragment {
                 1);
     }
 
-    private void loadBitmaps(){
-        bMonument = getScaledBitMap(R.drawable.monument);
+    private boolean loadBitmaps(String icon){
+        switch (icon){
+            case RSC_GOLD:
+                mBitmapCache.put(RSC_GOLD, getScaledBitMap(R.drawable.gold));
+                break;
+            case RSC_STONE:
+                mBitmapCache.put(RSC_STONE, getScaledBitMap(R.drawable.stone));
+                break;
+            case BLD_MONUMENT:
+                mBitmapCache.put(BLD_MONUMENT, getScaledBitMap(R.drawable.monument));
+                break;
+            default: return false;
+        }
+
+        return true;
     }
 
     private Bitmap getScaledBitMap(int bitMapId){
@@ -245,38 +260,8 @@ public class MapFragment extends Fragment {
         return scaledBm;
     }
 
-    public float getLastDistance(Location cLoc){
-
-        Location l1 = lastLocation;
-        Location l2 = cLoc == null ? currLocation : cLoc;
-
-        if (l1 == null || l2 == null){
-            return 0;
-        }
-
-        float [] results = new float[3];
-
-        Location.distanceBetween(
-                l1.getLatitude(),
-                l1.getLongitude(),
-                l2.getLatitude(),
-                l2.getLongitude(),
-                results
-        );
-
-        return results[0];
-    }
-
     public float getLocationResolution(){
         return locationResolution;
-    }
-
-    public Location[] getLocations(){
-        Location[] ret = new Location[2];
-        ret[0] = lastLocation;
-        ret[1] = currLocation;
-
-        return ret;
     }
 
     public interface LocationUpdateHandler{
@@ -285,5 +270,53 @@ public class MapFragment extends Fragment {
 
     public long getUpdateDeltaTime(){
         return dTime;
+    }
+
+    public void removeResourceMarker(Integer markerId){
+        Marker m = mMarkerList.get(markerId);
+        if (m == null){
+            Log.i("DEBUG", "Failed to remove marker");
+            return;
+        }
+
+        m.remove();
+    }
+
+    public void addResourceMarker(LatLng latLng, String resource, Integer markerId){
+
+        Bitmap bitmap = mBitmapCache.get(resource);
+
+        if (bitmap == null) {
+            if (loadBitmaps(resource) == false){
+                Log.i("DEBUG", "Failed to load icon");
+                return;
+            }
+
+            bitmap = mBitmapCache.get(resource);
+        }
+
+        Marker marker = mMap.addMarker(new MarkerOptions().position(latLng).icon(BitmapDescriptorFactory.fromBitmap(bitmap)));
+        mMarkerList.put(markerId, marker);
+    }
+
+    public LatLng getDestinationPoint(LatLng source, double brng, double dist) {
+        dist = dist / 6371;
+        brng = Math.toRadians(brng);
+
+        double lat1 = Math.toRadians(source.latitude), lon1 = Math.toRadians(source.longitude);
+        double lat2 = Math.asin(Math.sin(lat1) * Math.cos(dist) +
+                Math.cos(lat1) * Math.sin(dist) * Math.cos(brng));
+        double lon2 = lon1 + Math.atan2(Math.sin(brng) * Math.sin(dist) *
+                        Math.cos(lat1),
+                Math.cos(dist) - Math.sin(lat1) *
+                        Math.sin(lat2));
+        if (Double.isNaN(lat2) || Double.isNaN(lon2)) {
+            return null;
+        }
+        return new LatLng(Math.toDegrees(lat2), Math.toDegrees(lon2));
+    }
+
+    public GoogleMap getMap(){
+        return mMap;
     }
 }

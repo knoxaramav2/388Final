@@ -8,7 +8,7 @@ import android.arch.persistence.room.RoomDatabase;
 import android.content.Context;
 import android.support.annotation.NonNull;
 
-@Database(entities = {UserEntity.class, WorldEntity.class}, version = 1, exportSchema = false)
+@Database(entities = {UserEntity.class, WorldEntity.class}, version = 2, exportSchema = false)
 public abstract class GameDB extends RoomDatabase {
 
     private static GameDB INSTANCE;
@@ -19,6 +19,7 @@ public abstract class GameDB extends RoomDatabase {
         if (INSTANCE == null){
             INSTANCE = Room.databaseBuilder(context, GameDB.class, Room.MASTER_TABLE_NAME)
                     .allowMainThreadQueries()//Yeah, yeah, I know
+                    .fallbackToDestructiveMigration()
                     .build();
         }
 

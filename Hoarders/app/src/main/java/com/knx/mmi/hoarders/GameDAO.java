@@ -34,7 +34,9 @@ public interface GameDAO  {
     @Query("SELECT * FROM world_entity where spawn_time < :expiration")
     List<WorldEntity> getWorldEntitiesByExpired(long expiration);
     @Delete
-    void deleteWorldEntityById(int resourceId);
+    void deleteWorldEntityById(WorldEntity worldEntity);
+    @Delete
+    void clearWorldEntities(List<WorldEntity> worldEntities);
     @Delete
     void deleteWorldEntities(WorldEntity... entities);
 

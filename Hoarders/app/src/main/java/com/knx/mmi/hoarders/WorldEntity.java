@@ -2,19 +2,21 @@ package com.knx.mmi.hoarders;
 
 import android.arch.persistence.room.ColumnInfo;
 import android.arch.persistence.room.Entity;
+import android.arch.persistence.room.PrimaryKey;
 import android.arch.persistence.room.TypeConverters;
 import android.support.annotation.NonNull;
 
 @Entity(tableName = "world_entity")
 public class WorldEntity {
     @NonNull
+    @PrimaryKey
     private int resourceId;
     @ColumnInfo(name = "rsc_type")
     private String resourceType;
     @ColumnInfo(name = "lat")
-    private String latitude;
+    private Double latitude;
     @ColumnInfo(name = "lng")
-    private String longitude;
+    private Double longitude;
     @ColumnInfo (name = "spawn_time")
     private Long spawnTime;
 
@@ -36,19 +38,19 @@ public class WorldEntity {
         return resourceType;
     }
 
-    public void setLatitude(String latitude){
+    public void setLatitude(Double latitude){
         this.latitude = latitude;
     }
 
-    public String getLatitude(){
+    public Double getLatitude(){
         return latitude;
     }
 
-    public void setLongitude(String longitude){
+    public void setLongitude(Double longitude){
         this.longitude = longitude;
     }
 
-    public String getLongitude(){
+    public Double getLongitude(){
         return longitude;
     }
 
