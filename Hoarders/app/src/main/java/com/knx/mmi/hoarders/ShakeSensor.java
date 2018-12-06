@@ -5,6 +5,7 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.util.Log;
 
 public class ShakeSensor implements SensorEventListener {
 
@@ -18,7 +19,7 @@ public class ShakeSensor implements SensorEventListener {
     private int shakeCounter;
     private boolean shakePositive;
     private final float shakeThresh = 2f;
-    private final int reqShakes = 5;
+    public final static int reqShakes = 5;
 
     private boolean isActive;
 
@@ -53,6 +54,8 @@ public class ShakeSensor implements SensorEventListener {
             return;
         }
 
+        resetShake();
+
         sensorManager.unregisterListener(this);
         isActive = false;
     }
@@ -65,9 +68,22 @@ public class ShakeSensor implements SensorEventListener {
 
         float accT = (float) Math.sqrt((accX*accX)+(accY*accY)+(accZ*accZ));
 
+        //Log.i("DEBUG", "ACC"+accT);
 
+        if (baseAcc == null){
+            baseAcc = new Float(accT);
+            return;
+        }
 
-        iShakeSensor.shakeSensorUpdate(accT);
+        if (accT > (baseAcc + shakeThresh) && !shakePositive){
+            shakePositive = true;
+            shakeCounter++;
+        } else if (accT < (baseAcc - shakeThresh) && shakePositive){
+            shakePositive = false;
+            shakeCounter++;
+        }
+
+        iShakeSensor.shakeSensorUpdate(shakeCounter);
     }
 
     @Override
@@ -76,6 +92,6 @@ public class ShakeSensor implements SensorEventListener {
     }
 
     interface IShakeSensor{
-        void shakeSensorUpdate(float acc);
+        void shakeSensorUpdate(int shakes);
     }
 }

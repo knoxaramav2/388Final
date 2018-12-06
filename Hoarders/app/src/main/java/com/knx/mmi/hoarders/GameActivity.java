@@ -1,7 +1,11 @@
 package com.knx.mmi.hoarders;
 
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.location.Location;
 import android.os.Handler;
+import android.speech.RecognizerIntent;
+import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.TabLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -28,7 +32,9 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.functions.FirebaseFunctions;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 public class GameActivity extends AppCompatActivity
@@ -55,19 +61,23 @@ public class GameActivity extends AppCompatActivity
     private FirebaseFunctions mFireBaseFunctions;
 
     private GameMapFragment mGameMapFragment;
-    private TextView mLatLngDisplay;
-
     private GameDB gameDB;
 
     private int UPDATE_RATE = 10000;
     private long RESOURCE_LIFETIME = 1000 * 60 * 10;
     private int MAX_WORLD_ENTITIES = 15;
 
+    private String monumentTitle;
+
     private Handler mGameLoop;
     private MapGameCallback mapGameCallback;
     private ShakeSensor shakeSensor;
 
+    private Random rand;
     private int currentSelected;
+
+    //Intent returns
+    private int REQ_SPEECH_INTENT_RESULT = 5;
 
     /**
      * The {@link ViewPager} that will host the section contents.
@@ -91,20 +101,38 @@ public class GameActivity extends AppCompatActivity
         // Set up the ViewPager with the sections adapter.
         mViewPager = findViewById(R.id.container);
         mViewPager.setAdapter(mSectionsPagerAdapter);
-
-        mLatLngDisplay = findViewById(R.id.latLngDisplay);
-
         TabLayout tabLayout = findViewById(R.id.tabs);
+        FloatingActionButton buildMonumentButton = findViewById(R.id.buildMntBtn);
+        buildMonumentButton.setOnClickListener(new View.OnClickListener(){
+            @Override
+            public void onClick(View view){
+                buildMonument();
+            }
+        });
 
-        mViewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout));
-        tabLayout.addOnTabSelectedListener(new TabLayout.ViewPagerOnTabSelectedListener(mViewPager));
+        mViewPager.addOnPageChangeListener(new TabLayout.TabLayoutOnPageChangeListener(tabLayout){
+            @Override
+            public void onPageSelected(int position){
+                if (position != 1){
+                    return;
+                }
+
+                mSectionsPagerAdapter.notifyDataSetChanged();
+            }
+        });
+        tabLayout.addOnTabSelectedListener(new TabLayout.ViewPagerOnTabSelectedListener(mViewPager){
+
+        });
 
         //Setup Firebase connections
         mFireBaseauth = FirebaseAuth.getInstance();
         mFireBaseDB = FirebaseDatabase.getInstance();
         mFireBaseFunctions = FirebaseFunctions.getInstance();
+        mFireBaseUser = mFireBaseauth.getCurrentUser();
 
         httpMapHandler = new Handler();
+        rand = new Random();
+        rand.setSeed(System.currentTimeMillis());
     }
 
     @Override
@@ -165,8 +193,7 @@ public class GameActivity extends AppCompatActivity
             return;
         }
 
-        Random r = new Random();
-        int toSpawn = r.nextInt(maxSpawn);
+        int toSpawn = rand.nextInt(maxSpawn);
 
         Location userLoc = mGameMapFragment.getCurrLocation();
 
@@ -186,7 +213,7 @@ public class GameActivity extends AppCompatActivity
         }
 
         for (int i=0; i<toSpawn; ++i){
-            int rsc = r.nextInt(2);
+            int rsc = rand.nextInt(2);
             String rscString;
             if (rsc == 0){
                 rscString = GameMapFragment.RSC_GOLD;
@@ -194,12 +221,12 @@ public class GameActivity extends AppCompatActivity
                 rscString = GameMapFragment.RSC_STONE;
             }
 
-            double bearing = r.nextDouble() * 360f;
-            LatLng placeLatLng = mGameMapFragment.getDestinationPoint(userLatLng, bearing, r.nextDouble()*5);
+            double bearing = rand.nextDouble() * 360f;
+            LatLng placeLatLng = mGameMapFragment.getDestinationPoint(userLatLng, bearing, rand.nextDouble()*5);
 
             //register resource to DB
             WorldEntity resource = new WorldEntity();
-            resource.setResourceId(r.nextInt());
+            resource.setResourceId(rand.nextInt());
             resource.setSpawnTime(System.currentTimeMillis());
             resource.setResourceType(rscString);
             resource.setLatitude(placeLatLng.latitude);
@@ -207,7 +234,7 @@ public class GameActivity extends AppCompatActivity
 
             gameDB.daoAccess().inserWorldEntity(resource);
 
-            mGameMapFragment.addResourceMarker(placeLatLng, rscString, resource.getResourceId());
+            mGameMapFragment.addResourceMarker(placeLatLng, rscString, resource.getResourceId(), null);
         }
     }
 
@@ -222,9 +249,63 @@ public class GameActivity extends AppCompatActivity
     public void onMarkerClick(int id){
         Toast.makeText(this, "Shake device to mine", Toast.LENGTH_LONG).show();
 
-        shakeSensor.start();
+        if (currentSelected != 0){
+            shakeSensor.stop();
+        }
 
         currentSelected = id;
+
+        WorldEntity wd = gameDB.daoAccess().getWorldEntityById(id);
+        if (wd == null){
+            Toast.makeText(this, "Could not determine resource", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        //Toast.makeText(this, "Selected "+wd.getResourceType(), Toast.LENGTH_SHORT).show();
+        shakeSensor.start();
+    }
+
+    public void buildMonument(){
+
+        UserEntity user = gameDB.daoAccess().getUserByEmail(mFireBaseUser.getEmail());
+
+        if (user.getStone() < 10){
+            Toast.makeText(this, "Need " + (10-user.getStone()) + " more stone", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        user.setStone(user.getStone()-10);
+        gameDB.daoAccess().updateUser(user);
+
+        Intent recIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        recIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        recIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
+        recIntent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak thy name of your monument, mortal.");
+
+        try{
+            startActivityForResult(recIntent, REQ_SPEECH_INTENT_RESULT);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "Speech application not supported", Toast.LENGTH_SHORT).show();
+        }
+
+    }
+
+    private void spawnMonument(String title){
+        Location loc = mGameMapFragment.getCurrLocation();
+        LatLng latLng = new LatLng(loc.getLatitude(), loc.getLongitude());
+
+        mGameMapFragment.addResourceMarker(latLng, mGameMapFragment.BLD_MONUMENT, rand.nextInt(), title+" "+mFireBaseUser.getEmail());
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data){
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQ_SPEECH_INTENT_RESULT){
+            if (resultCode == RESULT_OK && data != null){
+                ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                spawnMonument(result.get(0));
+            }
+        }
     }
 
     private Runnable gameLoop = new Runnable() {
@@ -244,29 +325,72 @@ public class GameActivity extends AppCompatActivity
     };
 
     @Override
-    public void shakeSensorUpdate(float acc) {
-        Log.i("DEBUG", ""+acc);
+    public void onSpeech(String str){
+
+    }
+
+    @Override
+    public void shakeSensorUpdate(int shakes) {
+        //Log.i("DEBUG", "SHAKES: "+shakes);
+
+        if (shakes < ShakeSensor.reqShakes){
+            return;
+        }
+
+        shakeSensor.stop();
+
+        WorldEntity wd = gameDB.daoAccess().getWorldEntityById(currentSelected);
+        if (wd == null){
+            Toast.makeText(this, "Resource cannot be mined", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String email = mFireBaseUser.getEmail();
+        UserEntity user = gameDB.daoAccess().getUserByEmail(email);
+
+        switch (wd.getResourceType()){
+            case GameMapFragment.RSC_GOLD:
+                user.setGold(user.getGold()+3);
+                Toast.makeText(this, "+3 Gold", Toast.LENGTH_SHORT).show();
+                break;
+            case GameMapFragment.RSC_STONE:
+                user.setStone(user.getGold()+3);
+                Toast.makeText(this, "+3 Stone", Toast.LENGTH_SHORT).show();
+                break;
+            case GameMapFragment.BLD_MONUMENT:
+                Toast.makeText(this, "Monument destroyed", Toast.LENGTH_SHORT).show();
+                break;
+        }
+
+        gameDB.daoAccess().updateUser(user);
+
+        mGameMapFragment.removeResourceMarker(currentSelected);
+        gameDB.daoAccess().deleteWorldEntityById(wd);
+        currentSelected=0;
     }
 
     /**
      * A placeholder fragment containing a simple view.
      */
-    public static class PlaceholderFragment extends Fragment {
+    public static class ResourceFragment extends Fragment implements FragmentUpdateable{
         /**
          * The fragment argument representing the section number for this
          * fragment.
          */
         private static final String ARG_SECTION_NUMBER = "section_number";
 
-        public PlaceholderFragment() {
+        public ResourceFragment() {
         }
+
+        TextView rscStone;
+        TextView rscGold;
 
         /**
          * Returns a new instance of this fragment for the given section
          * number.
          */
-        public static PlaceholderFragment newInstance(int sectionNumber) {
-            PlaceholderFragment fragment = new PlaceholderFragment();
+        public static ResourceFragment newInstance(int sectionNumber) {
+            ResourceFragment fragment = new ResourceFragment();
             Bundle args = new Bundle();
             args.putInt(ARG_SECTION_NUMBER, sectionNumber);
             fragment.setArguments(args);
@@ -276,8 +400,29 @@ public class GameActivity extends AppCompatActivity
         @Override
         public View onCreateView(LayoutInflater inflater, ViewGroup container,
                                  Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_game, container, false);
+            View rootView = inflater.inflate(R.layout.content_resources, container, false);
+
+            rscStone = rootView.findViewById(R.id.stoneField);
+            rscGold = rootView.findViewById(R.id.goldField);
+
+            update();
+
             return rootView;
+        }
+
+        @Override
+        public void onResume(){
+            super.onResume();
+        }
+
+        @Override
+        public void update(){
+            GameDB gameDB = GameDB.getInstance(getContext());
+            FirebaseAuth auth = FirebaseAuth.getInstance();
+            UserEntity user = gameDB.daoAccess().getUserByEmail(auth.getCurrentUser().getEmail());
+
+            rscStone.setText("Stone:  " + user.getStone().toString());
+            rscGold.setText("Gold:  " + user.getGold().toString());
         }
     }
 
@@ -285,6 +430,22 @@ public class GameActivity extends AppCompatActivity
 
         public SectionsPagerAdapter(FragmentManager fm){
             super(fm);
+        }
+
+        //https://stackoverflow.com/questions/18088076/update-fragment-from-viewpager
+        @Override
+        public int getItemPosition(Object object){
+
+            if (!(object instanceof ResourceFragment)){
+                return super.getItemPosition(object);
+            }
+
+            ResourceFragment rscFragment = (ResourceFragment) object;
+            if (rscFragment != null){
+                rscFragment.update();
+            }
+
+            return super.getItemPosition(object);
         }
 
         @Override
@@ -298,15 +459,14 @@ public class GameActivity extends AppCompatActivity
                                 String lat = String.format("%.3f", location.getLatitude());
                                 String lng = String.format("%.3f", location.getLongitude());
                                 long dTime = mGameMapFragment.getUpdateDeltaTime();
-
-                                mLatLngDisplay.setText("LATLNG  "+lat+" : "+lng + " delta "+" : "+dTime);
-                            }
+                                }
                         }, mapGameCallback);
 
                         onMapReady();
                     }
+
                     return mGameMapFragment;
-                default: return PlaceholderFragment.newInstance(i + 1);
+                default: return ResourceFragment.newInstance(i + 1);
             }
         }
 
@@ -314,5 +474,9 @@ public class GameActivity extends AppCompatActivity
         public int getCount() {
             return 2;
         }
+    }
+
+    interface FragmentUpdateable{
+        void update();
     }
 }

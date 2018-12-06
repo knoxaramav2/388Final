@@ -144,8 +144,6 @@ public class GameMapFragment extends Fragment {
                                 }
                             }
 
-
-
                             return false;
                         }
                     });
@@ -282,7 +280,7 @@ public class GameMapFragment extends Fragment {
         m.remove();
     }
 
-    public void addResourceMarker(LatLng latLng, String resource, Integer markerId){
+    public void addResourceMarker(LatLng latLng, String resource, Integer markerId, String title){
 
         Bitmap bitmap = mBitmapCache.get(resource);
 
@@ -296,6 +294,11 @@ public class GameMapFragment extends Fragment {
         }
 
         Marker marker = mMap.addMarker(new MarkerOptions().position(latLng).icon(BitmapDescriptorFactory.fromBitmap(bitmap)));
+
+        if (resource == BLD_MONUMENT){
+            marker.setTitle(title);
+        }
+
         mMarkerList.put(markerId, marker);
     }
 
