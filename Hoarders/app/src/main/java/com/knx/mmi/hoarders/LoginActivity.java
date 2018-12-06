@@ -93,6 +93,7 @@ public class LoginActivity extends AppCompatActivity {
 
                     } else {
                         mUser = null;
+                        Toast.makeText(getApplicationContext(), "Login failed", Toast.LENGTH_LONG);
                         Log.i("DEBUG", "LOGIN FAILED");
                     }
                 }
@@ -109,9 +110,6 @@ public class LoginActivity extends AppCompatActivity {
 
         String userName = userNameView.getText().toString();
         String password = passwordView.getText().toString();
-
-        userName = "knoxarama@gmail.com";
-        password = "alphabob42";
 
         if (userName == "" || password == ""){
             return;
