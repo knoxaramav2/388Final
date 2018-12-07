@@ -16,6 +16,8 @@ public class UserEntity {
     private Integer gold;
     @ColumnInfo (name = "stone")
     private Integer stone;
+    @ColumnInfo (name="monuments")
+    private String monuments;
 
     public UserEntity(){
 
@@ -33,6 +35,8 @@ public class UserEntity {
 
     public void setStone(Integer stone) {this.stone = stone;}
 
+    public void setMonuments (String monuments) {this.monuments = monuments;}
+
     public String getUserMail(){
         return userMail;
     }
@@ -44,4 +48,7 @@ public class UserEntity {
     public Integer getGold() {return gold;}
 
     public Integer getStone() {return stone;}
+
+    public String getMonuments(){return monuments;}
+
 }

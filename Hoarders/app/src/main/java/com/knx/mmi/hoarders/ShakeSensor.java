@@ -15,18 +15,28 @@ public class ShakeSensor implements SensorEventListener {
     private final int ActivateShake = 5;
 
     private Float baseAcc;
+    private Float baseX, baseY;
 
-    private int shakeCounter;
+
+    private int shakeCounterHorz;
+    private int shakeCounterVert;
     private boolean shakePositive;
     private final float shakeThresh = 2f;
     public final static int reqShakes = 5;
+    public int shakeDir = 0;
+
+    public static int HORZ = 1;
+    public static int VERT = 2;
 
     private boolean isActive;
 
     private void resetShake(){
         baseAcc = null;
-        shakeCounter = 0;
+        shakeCounterHorz = 0;
+        shakeCounterVert = 0;
         shakePositive = false;
+        baseX = null;
+        baseY = null;
     }
 
     public ShakeSensor(Context context, IShakeSensor iShakeSensor){
@@ -68,22 +78,44 @@ public class ShakeSensor implements SensorEventListener {
 
         float accT = (float) Math.sqrt((accX*accX)+(accY*accY)+(accZ*accZ));
 
-        //Log.i("DEBUG", "ACC"+accT);
-
         if (baseAcc == null){
             baseAcc = new Float(accT);
+            baseX = new Float(accX);
+            baseY = new Float(accY);
             return;
         }
 
-        if (accT > (baseAcc + shakeThresh) && !shakePositive){
-            shakePositive = true;
-            shakeCounter++;
-        } else if (accT < (baseAcc - shakeThresh) && shakePositive){
-            shakePositive = false;
-            shakeCounter++;
+        accX -= baseX;
+        accY -= baseY;
+
+        Log.i("DEBUG", accX+"   :   "+accY+"   :   "+accZ);
+
+        shakeDir = accX > accY ?
+                HORZ : VERT;
+
+        if (shakeDir == HORZ){
+            if (accX > 3 && !shakePositive){
+                shakePositive = true;
+                ++shakeCounterHorz;
+            } else {
+                if (accX < -3 && shakePositive){
+                    shakePositive = false;
+                    ++shakeCounterHorz;
+                }
+            }
+        } else {
+            if (accY > 2 && !shakePositive){
+                shakePositive = true;
+                ++shakeCounterVert;
+            } else {
+                if (accY < -2 && shakePositive){
+                    shakePositive = false;
+                    ++shakeCounterVert;
+                }
+            }
         }
 
-        iShakeSensor.shakeSensorUpdate(shakeCounter);
+        iShakeSensor.shakeSensorUpdate(shakeCounterVert, shakeCounterHorz);
     }
 
     @Override
@@ -92,6 +124,14 @@ public class ShakeSensor implements SensorEventListener {
     }
 
     interface IShakeSensor{
-        void shakeSensorUpdate(int shakes);
+        void shakeSensorUpdate(int vertShakes, int horzShakes);
+    }
+
+    public void clearHorz(){
+        shakeCounterHorz = 0;
+    }
+
+    public void clearVert(){
+        shakeCounterVert = 0;
     }
 }

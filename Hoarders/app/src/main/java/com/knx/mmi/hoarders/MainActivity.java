@@ -2,6 +2,9 @@ package com.knx.mmi.hoarders;
 
 import android.arch.persistence.room.Room;
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Point;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.os.Handler;
@@ -11,6 +14,7 @@ import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Display;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -24,6 +28,8 @@ import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseException;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.functions.FirebaseFunctions;
 import com.google.firebase.functions.FirebaseFunctionsException;
 import com.google.firebase.functions.HttpsCallableResult;
@@ -42,6 +48,8 @@ public class MainActivity extends AppCompatActivity implements HttpFireBaseAsync
     private FirebaseFunctions mFunctions;
     private FirebaseAuth mAuth;
     private FirebaseUser mUser;
+    private FirebaseDatabase firebaseDatabase;
+    private DatabaseReference dbRef;
 
     private final int ACTIVITY_LOGIN = 1;
     private final int ACTIVITY_PLAY = 2;
@@ -57,15 +65,8 @@ public class MainActivity extends AppCompatActivity implements HttpFireBaseAsync
         httpFireBaseAsync = new HttpFireBaseAsync(this);
         mFunctions = FirebaseFunctions.getInstance();
         mAuth = FirebaseAuth.getInstance();
-
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
-            }
-        });
+        firebaseDatabase = FirebaseDatabase.getInstance();
+        dbRef = firebaseDatabase.getReference();
 
         gameDB = Room.databaseBuilder(this, GameDB.class, "gameDB")
             .fallbackToDestructiveMigration()

@@ -147,6 +147,8 @@ public class GameMapFragment extends Fragment {
                             return false;
                         }
                     });
+
+                    mapGameCallback.onMapReady();
                 }
             }
         });
@@ -219,9 +221,15 @@ public class GameMapFragment extends Fragment {
     }
 
     boolean checkLocationPermission(){
-        if ((ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)){
-            requestLocationPermission();
+
+        try{
+            if ((ContextCompat.checkSelfPermission(getContext(), Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED)){
+                requestLocationPermission();
+            }
+        } catch (Exception e){
+            e.printStackTrace();
         }
+
 
         return true;
     }

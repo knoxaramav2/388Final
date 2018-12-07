@@ -8,7 +8,7 @@ import android.arch.persistence.room.RoomDatabase;
 import android.content.Context;
 import android.support.annotation.NonNull;
 
-@Database(entities = {UserEntity.class, WorldEntity.class}, version = 2, exportSchema = false)
+@Database(entities = {UserEntity.class, WorldEntity.class}, version = 3, exportSchema = false)
 public abstract class GameDB extends RoomDatabase {
 
     private static GameDB INSTANCE;

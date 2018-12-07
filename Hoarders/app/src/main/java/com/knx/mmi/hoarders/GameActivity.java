@@ -1,10 +1,12 @@
 package com.knx.mmi.hoarders;
 
+import android.arch.persistence.room.PrimaryKey;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.location.Location;
 import android.os.Handler;
 import android.speech.RecognizerIntent;
+import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.TabLayout;
 import android.support.v7.app.AppCompatActivity;
@@ -26,15 +28,27 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.maps.MapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.functions.FirebaseFunctions;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 
 public class GameActivity extends AppCompatActivity
@@ -59,6 +73,7 @@ public class GameActivity extends AppCompatActivity
     private FirebaseUser mFireBaseUser;
     private FirebaseDatabase mFireBaseDB;
     private FirebaseFunctions mFireBaseFunctions;
+    private DatabaseReference dbRef;
 
     private GameMapFragment mGameMapFragment;
     private GameDB gameDB;
@@ -75,6 +90,7 @@ public class GameActivity extends AppCompatActivity
 
     private Random rand;
     private int currentSelected;
+    private String currentSelectedRsc;
 
     //Intent returns
     private int REQ_SPEECH_INTENT_RESULT = 5;
@@ -129,10 +145,19 @@ public class GameActivity extends AppCompatActivity
         mFireBaseDB = FirebaseDatabase.getInstance();
         mFireBaseFunctions = FirebaseFunctions.getInstance();
         mFireBaseUser = mFireBaseauth.getCurrentUser();
+        dbRef = mFireBaseDB.getReference();
 
         httpMapHandler = new Handler();
         rand = new Random();
         rand.setSeed(System.currentTimeMillis());
+    }
+
+    @Override
+    protected void onPause(){
+        super.onPause();
+
+        UserEntity user = gameDB.daoAccess().getUserByEmail(mFireBaseUser.getEmail());
+        saveToServer(user);
     }
 
     @Override
@@ -170,6 +195,45 @@ public class GameActivity extends AppCompatActivity
 
         gameDB = GameDB.getInstance(getApplicationContext());
     }
+
+    public List <Monument> getUserMonuments(UserEntity user){
+
+        if (user.getMonuments() == null || user.getMonuments() == ""){
+            return new ArrayList<>();
+        }
+
+        List<Monument> monuments = new ArrayList<>();
+
+        String[] raws = user.getMonuments().split("|");
+
+        for(String s : raws){
+            Monument m = Monument.monumentFromString(s);
+            if (m == null){
+                Log.i("DEBUG","Error reading monument: " + s);
+                continue;
+            }
+
+            monuments.add(m);
+        }
+
+        return monuments;
+    }
+
+    public void saveToServer(UserEntity user){
+        FireBaseUserModel fmUser;
+        fmUser = new FireBaseUserModel(user.getUserMail(), user.getGold(), user.getStone(), user.getMonuments());
+        String sPath = fmUser.email.substring(0, fmUser.email.indexOf('.'));
+        DatabaseReference ref = dbRef.child("users").child(sPath);
+        ref.setValue(fmUser);
+    }
+
+    public UserEntity getUserFromDatabase(String email){
+
+        UserEntity userEntity = new UserEntity();
+
+        return userEntity;
+    }
+
 
     //Remove world entities from DB and remove sprite
     private void removeExpiredResources(){
@@ -243,23 +307,57 @@ public class GameActivity extends AppCompatActivity
         List<WorldEntity> worldEntities = gameDB.daoAccess().getAllWorldEntities();
         gameDB.daoAccess().clearWorldEntities(worldEntities);
         mGameLoop.post(gameLoop);
+
+        DatabaseReference ref = dbRef.child("users");
+        ref.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                Map<String, Object> items = (Map<String, Object>) dataSnapshot.getValue();
+                ArrayList<Monument> monuments = new ArrayList<>();
+
+                for (Map.Entry<String, Object> entry: items.entrySet()){
+                    Map item = (Map) entry.getValue();
+                    String m = (String) item.get("monuments");
+                    Monument monument = Monument.monumentFromString(m);
+                    monuments.add(monument);
+                }
+
+                for (Monument m : monuments){
+                    spawnMonument(m);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.i("DEBUG", databaseError.getMessage());
+            }
+        });
     }
 
     @Override
     public void onMarkerClick(int id){
-        Toast.makeText(this, "Shake device to mine", Toast.LENGTH_LONG).show();
-
         if (currentSelected != 0){
             shakeSensor.stop();
         }
 
-        currentSelected = id;
+        currentSelected = 0;
+        currentSelectedRsc = null;
 
         WorldEntity wd = gameDB.daoAccess().getWorldEntityById(id);
         if (wd == null){
             Toast.makeText(this, "Could not determine resource", Toast.LENGTH_SHORT).show();
             return;
         }
+
+        currentSelected = id;
+        currentSelectedRsc = wd.getResourceType();
+
+        if (currentSelectedRsc.equals(GameMapFragment.RSC_STONE)){
+            Toast.makeText(this, "Shake device vertically to mine", Toast.LENGTH_SHORT).show();
+        } else if (currentSelectedRsc.equals(GameMapFragment.RSC_GOLD)){
+            Toast.makeText(this, "Shake device horizontally to pan", Toast.LENGTH_SHORT).show();
+        }
+
         //Toast.makeText(this, "Selected "+wd.getResourceType(), Toast.LENGTH_SHORT).show();
         shakeSensor.start();
     }
@@ -289,11 +387,41 @@ public class GameActivity extends AppCompatActivity
 
     }
 
+    private void spawnMonument(Monument monument){
+        mGameMapFragment.addResourceMarker(
+                new LatLng(monument.lat, monument.lng),
+                GameMapFragment.BLD_MONUMENT,
+                monument.id,
+                monument.title
+        );
+    }
+
     private void spawnMonument(String title){
         Location loc = mGameMapFragment.getCurrLocation();
         LatLng latLng = new LatLng(loc.getLatitude(), loc.getLongitude());
+        String email = mFireBaseUser.getEmail();
+        String rTitle = title+" "+email.substring(0, email.indexOf('.'));
+        int id = rand.nextInt();
+        Monument m = new Monument(rTitle, latLng.latitude, latLng.longitude, id);
 
-        mGameMapFragment.addResourceMarker(latLng, mGameMapFragment.BLD_MONUMENT, rand.nextInt(), title+" "+mFireBaseUser.getEmail());
+        UserEntity userEntity = gameDB.daoAccess().getUserByEmail(mFireBaseUser.getEmail());
+        List<Monument> monuments = getUserMonuments(userEntity);
+        monuments.add(m);
+
+        String mStr = new String();
+
+        for (Monument monument : monuments){
+            mStr += monument.toString();
+            mStr += '|';
+        }
+
+        mStr = mStr.substring(0, mStr.length()-1);
+
+        userEntity.setMonuments(mStr);
+        gameDB.daoAccess().updateUser(userEntity);
+
+        mGameMapFragment.addResourceMarker(latLng, mGameMapFragment.BLD_MONUMENT, id, rTitle);
+        saveToServer(userEntity);
     }
 
     @Override
@@ -330,11 +458,23 @@ public class GameActivity extends AppCompatActivity
     }
 
     @Override
-    public void shakeSensorUpdate(int shakes) {
+    public void shakeSensorUpdate(int vertShakes, int horzShakes) {
         //Log.i("DEBUG", "SHAKES: "+shakes);
 
-        if (shakes < ShakeSensor.reqShakes){
+        if (currentSelected == 0){
             return;
+        }
+
+        if (currentSelectedRsc.equals(GameMapFragment.RSC_STONE)){
+            shakeSensor.clearHorz();
+            if (vertShakes < ShakeSensor.reqShakes){
+                return;
+            }
+        } else {
+            shakeSensor.clearVert();
+            if (horzShakes < ShakeSensor.reqShakes){
+                return;
+            }
         }
 
         shakeSensor.stop();
@@ -354,7 +494,7 @@ public class GameActivity extends AppCompatActivity
                 Toast.makeText(this, "+3 Gold", Toast.LENGTH_SHORT).show();
                 break;
             case GameMapFragment.RSC_STONE:
-                user.setStone(user.getGold()+3);
+                user.setStone(user.getStone()+3);
                 Toast.makeText(this, "+3 Stone", Toast.LENGTH_SHORT).show();
                 break;
             case GameMapFragment.BLD_MONUMENT:
@@ -462,7 +602,7 @@ public class GameActivity extends AppCompatActivity
                                 }
                         }, mapGameCallback);
 
-                        onMapReady();
+                        //onMapReady();
                     }
 
                     return mGameMapFragment;
